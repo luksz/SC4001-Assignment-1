@@ -56,6 +56,20 @@ def set_seed(seed = 0):
     torch.backends.cudnn.deterministic = True
 
 
+# Define the preprocessing function
+def preprocess(df, col_drop):
+    # Columns to drop
+    columns_to_drop = col_drop
+    
+    # Split the dataset (80% train, 20% test)
+    X_train, y_train, X_test, y_test = split_dataset(df, columns_to_drop, test_size=0.2, random_state=1)
+
+    # Scale the features using StandardScaler
+    X_train_scaled, X_test_scaled = preprocess_dataset(X_train, X_test)
+    
+    return X_train_scaled, y_train, X_test_scaled, y_test
+
+    
 # early stopping obtained from tutorial
 class EarlyStopper:
     def __init__(self, patience=3, min_delta=0):
@@ -73,3 +87,62 @@ class EarlyStopper:
             if self.counter >= self.patience:
                 return True
         return False
+
+
+
+class MLP(nn.Module):
+    
+    def __init__(self, no_features, no_hidden=128, no_labels=1, depth = 2):
+        super(MLP, self).__init__()
+        
+        # Define the MLP stack using nn.Sequential
+        self.mlp_stack = nn.Sequential(
+            # First hidden layer
+            nn.Linear(no_features, no_hidden),
+            nn.ReLU(),
+            nn.Dropout(p=0.2),  # Apply dropout to the first hidden layer
+
+            # Second hidden layer
+            nn.Linear(no_hidden, no_hidden),
+            nn.ReLU(),
+            nn.Dropout(p=0.2),  # Apply dropout to the second hidden layer
+
+            # Third hidden layer
+            nn.Linear(no_hidden, no_hidden),
+            nn.ReLU(),
+            nn.Dropout(p=0.2),  # Apply dropout to the third hidden layer
+
+            # Output layer
+            nn.Linear(no_hidden, no_labels),
+            nn.Sigmoid()  # Sigmoid activation for the output layer
+        )
+
+    def forward(self, x):
+        # Pass the input through the network stack
+        return self.mlp_stack(x)
+
+
+# Define the Custom Dataset
+class CustomDataset(Dataset):
+    def __init__(self, X, y):
+        """
+        Args:
+            X (ndarray): The input features (e.g., X_train_scaled or X_test_scaled).
+            y (ndarray): The labels (e.g., y_train or y_test).
+        """
+        self.X = torch.tensor(X, dtype=torch.float32)  # Convert input features to PyTorch tensors
+        self.y = torch.tensor(y, dtype=torch.long)     # Convert labels to PyTorch tensors (long for classification)
+
+    def __len__(self):
+        """Return the number of samples in the dataset."""
+        return len(self.X)
+
+    def __getitem__(self, idx):
+        """
+        Args:
+            idx (int): Index of the sample to fetch.
+        Returns:
+            Tuple of (input features, label) for the given index.
+        """
+        return self.X[idx], self.y[idx]
+
